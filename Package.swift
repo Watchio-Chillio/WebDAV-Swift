@@ -11,7 +11,7 @@ let package = Package(
             targets: ["WebDAV"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/drmohundro/SWXMLHash.git", .upToNextMajor(from: "5.0.0"))
+        .package(url: "https://code.sohuno.com/ifox-mac/SWXMLHash.git", .upToNextMajor(from: "5.0.0"))
     ],
     targets: [
         .target(
