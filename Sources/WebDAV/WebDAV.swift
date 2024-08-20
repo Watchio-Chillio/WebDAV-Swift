@@ -40,6 +40,30 @@ public class WebDAV: NSObject, URLSessionDelegate {
     }
 }
 
+#if DEBUG
+public extension WebDAV {
+    public func urlSession(_ session: URLSession, didReceive challenge: URLAuthenticationChallenge) async -> (URLSession.AuthChallengeDisposition, URLCredential?) {
+        
+        if challenge.protectionSpace.authenticationMethod == NSURLAuthenticationMethodServerTrust {
+                    if let serverTrust = challenge.protectionSpace.serverTrust {
+                        return (.useCredential, URLCredential(trust: serverTrust))
+                    }
+                } else if challenge.protectionSpace.authenticationMethod == NSURLAuthenticationMethodHTTPBasic {
+                    
+                    return (.performDefaultHandling, nil)
+                    // 提示用户输入用户名和密码，然后创建凭据并返回
+                    let username = "your_username"
+                    let password = "your_password"
+                    let credential = URLCredential(user: username, password: password, persistence:.forSession)
+                    return (.useCredential, credential)
+                } else {
+                    return (.performDefaultHandling, nil)
+                }
+                return (.performDefaultHandling, nil)
+    }
+}
+#endif
+
 //MARK: Public
 
 public extension WebDAV {
