@@ -77,12 +77,6 @@ public struct WebDAVFile: Identifiable, Codable, Equatable, Hashable {
         return string2
     }
     
-    //MARK: Public
-    
-    public var description: String {
-        "WebDAVFile(path: \(path), id: \(id), isDirectory: \(isDirectory), lastModified: \(WebDAVFile.rfc1123Formatter.string(from: lastModified)), size: \(size), etag: \(etag))"
-    }
-    
     public var fileURL: URL {
         URL(fileURLWithPath: path)
     }
@@ -103,3 +97,26 @@ public struct WebDAVFile: Identifiable, Codable, Equatable, Hashable {
     }
     
 }
+
+extension WebDAVFile : CustomStringConvertible {
+    public var description: String {
+        var desc = "WebDAVFile(path: \(path)"
+        if id != nil {
+            desc += ", id: " + id!
+        }
+        desc += ", isDirectory: \(isDirectory)"
+        if lastModified != nil {
+            desc += ", lastModified: \(WebDAVFile.rfc1123Formatter.string(from: lastModified!))"
+        }
+        if creationDate != nil {
+            desc += ", creationDate: \(WebDAVFile.rfc1123Formatter.string(from: creationDate!))"
+        }
+        desc += ", size: \(size)"
+        if etag != nil {
+            desc += ", etag: " + etag!
+        }
+        return desc
+    }
+
+}
+
