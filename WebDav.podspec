@@ -18,8 +18,8 @@ Pod::Spec.new do |s|
   s.tvos.deployment_target = '11.0'
 
   s.source = {
-    git: 'https://code.sohuno.com/ifox-mac/webdav.git',
-    branch: main
+    :git => 'https://code.sohuno.com/ifox-mac/webdav.git',
+    :branch => 'main'
   }
   s.source_files = 'Sources/WebDAV/*.swift'
 end
