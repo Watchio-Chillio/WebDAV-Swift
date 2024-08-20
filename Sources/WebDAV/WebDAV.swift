@@ -117,11 +117,12 @@ public extension WebDAV {
 <d:propfind  xmlns:d="DAV:" xmlns:oc="http://owncloud.org/ns" xmlns:nc="http://nextcloud.org/ns">
   <d:prop>
         <d:getlastmodified />
-        <d:getetag />
         <d:getcontenttype />
+        <d:getcontentlength />
+        <d:creationdate />
+        <d:getetag />
         <oc:fileid />
         <oc:permissions />
-        <oc:size />
         <nc:has-preview />
         <oc:favorite />
   </d:prop>
