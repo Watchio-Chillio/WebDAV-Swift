@@ -517,7 +517,8 @@ extension WebDAV {
         var request = URLRequest(url: url)
         request.httpMethod = method.rawValue
         request.addValue("Basic \(auth)", forHTTPHeaderField: "Authorization")
-        
+        //PROPFIND requests with a Depth of "infinity" are not allowed.
+        request.addValue("1", forHTTPHeaderField: "Depth")
         return request
     }
     
