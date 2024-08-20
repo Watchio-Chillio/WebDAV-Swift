@@ -93,6 +93,7 @@ public struct WebDAVFile: Identifiable, Codable, Equatable, Hashable {
         return string2
     }
     
+    /// The path relative to the baseURL
     public var fileURL: URL {
         URL(fileURLWithPath: path)
     }

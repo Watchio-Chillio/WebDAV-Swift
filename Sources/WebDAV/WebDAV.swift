@@ -20,8 +20,10 @@ public class WebDAV: NSObject, URLSessionDelegate {
     public var dataCache = Cache<AccountPath, Data>()
     public var imageCache = Cache<AccountPath, UIImage>()
     public var thumbnailCache = Cache<AccountPath, [ThumbnailProperties: UIImage]>()
+    var account: any WebDAVAccount;
     
-    public override init() {
+    public init(account: any WebDAVAccount) {
+        self.account = account
         super.init()
         loadFilesCacheFromDisk()
     }
@@ -49,11 +51,8 @@ public extension WebDAV {
                         return (.useCredential, URLCredential(trust: serverTrust))
                     }
                 } else if challenge.protectionSpace.authenticationMethod == NSURLAuthenticationMethodHTTPBasic {
-                    
-                    return (.performDefaultHandling, nil)
+                    guard let username = account.username, let password = account.password else { return (.performDefaultHandling, nil)  }
                     // 提示用户输入用户名和密码，然后创建凭据并返回
-                    let username = "your_username"
-                    let password = "your_password"
                     let credential = URLCredential(user: username, password: password, persistence:.forSession)
                     return (.useCredential, credential)
                 } else {
@@ -87,7 +86,7 @@ public extension WebDAV {
     ///   - error: A WebDAVError if the call was unsuccessful.
     /// - Returns: The data task for the request.
     @discardableResult
-    func listFiles<A: WebDAVAccount>(atPath path: String, account: A, password: String, foldersFirst: Bool = true, includeSelf: Bool = false, caching options: WebDAVCachingOptions = [], completion: @escaping (_ files: [WebDAVFile]?, _ error: WebDAVError?) -> Void) -> URLSessionDataTask? {
+    func listFiles(atPath path: String, foldersFirst: Bool = true, includeSelf: Bool = false, caching options: WebDAVCachingOptions = [], completion: @escaping (_ files: [WebDAVFile]?, _ error: WebDAVError?) -> Void) -> URLSessionDataTask? {
         // Check the cache
         var cachedResponse: [WebDAVFile]?
         let accountPath = AccountPath(account: account, path: path)
@@ -106,7 +105,7 @@ public extension WebDAV {
             }
         }
         
-        guard var request = authorizedRequest(path: path, account: account, password: password, method: .propfind) else {
+        guard var request = authorizedRequest(path: path, method: .propfind) else {
             completion(nil, .invalidCredentials)
             return nil
         }
@@ -148,7 +147,7 @@ public extension WebDAV {
                 config.shouldProcessNamespaces = true
             }.parse(string)
             
-            let files = xml["multistatus"]["response"].all.compactMap { WebDAVFile(xml: $0, baseURL: account.baseURL) }
+            let files = xml["multistatus"]["response"].all.compactMap { WebDAVFile(xml: $0, baseURL: self?.account.baseURL) }
             
             // Caching
             
@@ -163,7 +162,7 @@ public extension WebDAV {
             }
             
             do {
-                try self?.cleanupCache(at: path, account: account, files: Array(files.dropFirst()))
+                try self?.cleanupCache(at: path, files: Array(files.dropFirst()))
             } catch let cachingError {
                 error = .nsError(cachingError)
             }
@@ -190,8 +189,8 @@ public extension WebDAV {
     ///   - error: A WebDAVError if the call was unsuccessful. `nil` if it was.
     /// - Returns: The upload task for the request.
     @discardableResult
-    func upload<A: WebDAVAccount>(data: Data, toPath path: String, account: A, password: String, completion: @escaping (_ error: WebDAVError?) -> Void) -> URLSessionUploadTask? {
-        guard let request = authorizedRequest(path: path, account: account, password: password, method: .put) else {
+    func upload(data: Data, toPath path: String, completion: @escaping (_ error: WebDAVError?) -> Void) -> URLSessionUploadTask? {
+        guard let request = authorizedRequest(path: path, method: .put) else {
             completion(.invalidCredentials)
             return nil
         }
@@ -214,8 +213,8 @@ public extension WebDAV {
     ///   - error: A WebDAVError if the call was unsuccessful. `nil` if it was.
     /// - Returns: The upload task for the request.
     @discardableResult
-    func upload<A: WebDAVAccount>(file: URL, toPath path: String, account: A, password: String, completion: @escaping (_ error: WebDAVError?) -> Void) -> URLSessionUploadTask? {
-        guard let request = authorizedRequest(path: path, account: account, password: password, method: .put) else {
+    func upload(file: URL, toPath path: String, completion: @escaping (_ error: WebDAVError?) -> Void) -> URLSessionUploadTask? {
+        guard let request = authorizedRequest(path: path, method: .put) else {
             completion(.invalidCredentials)
             return nil
         }
@@ -240,8 +239,8 @@ public extension WebDAV {
     ///   - error: A WebDAVError if the call was unsuccessful. `nil` if it was.
     /// - Returns: The data task for the request.
     @discardableResult
-    func download<A: WebDAVAccount>(fileAtPath path: String, account: A, password: String, caching options: WebDAVCachingOptions = [], completion: @escaping (_ data: Data?, _ error: WebDAVError?) -> Void) -> URLSessionDataTask? {
-        cachingDataTask(cache: dataCache, path: path, account: account, password: password, caching: options, valueFromData: { $0 }, completion: completion)
+    func download(fileAtPath path: String, caching options: WebDAVCachingOptions = [], completion: @escaping (_ data: Data?, _ error: WebDAVError?) -> Void) -> URLSessionDataTask? {
+        cachingDataTask(cache: dataCache, path: path, caching: options, valueFromData: { $0 }, completion: completion)
     }
     
     /// Create a folder at the specified path
@@ -254,8 +253,8 @@ public extension WebDAV {
     ///   - error: A WebDAVError if the call was unsuccessful. `nil` if it was.
     /// - Returns: The data task for the request.
     @discardableResult
-    func createFolder<A: WebDAVAccount>(atPath path: String, account: A, password: String, completion: @escaping (_ error: WebDAVError?) -> Void) -> URLSessionDataTask? {
-        basicDataTask(path: path, account: account, password: password, method: .mkcol, completion: completion)
+    func createFolder(atPath path: String, completion: @escaping (_ error: WebDAVError?) -> Void) -> URLSessionDataTask? {
+        basicDataTask(path: path, method: .mkcol, completion: completion)
     }
     
     /// Delete the file or folder at the specified path.
@@ -268,8 +267,8 @@ public extension WebDAV {
     ///   - error: A WebDAVError if the call was unsuccessful. `nil` if it was.
     /// - Returns: The data task for the request.
     @discardableResult
-    func deleteFile<A: WebDAVAccount>(atPath path: String, account: A, password: String, completion: @escaping (_ error: WebDAVError?) -> Void) -> URLSessionDataTask? {
-        basicDataTask(path: path, account: account, password: password, method: .delete, completion: completion)
+    func deleteFile(atPath path: String, completion: @escaping (_ error: WebDAVError?) -> Void) -> URLSessionDataTask? {
+        basicDataTask(path: path, method: .delete, completion: completion)
     }
     
     /// Move the file to the specified destination.
@@ -283,8 +282,8 @@ public extension WebDAV {
     ///   - error: A WebDAVError if the call was unsuccessful. `nil` if it was.
     /// - Returns: The data task for the request.
     @discardableResult
-    func moveFile<A: WebDAVAccount>(fromPath path: String, to destination: String, account: A, password: String, completion: @escaping (_ error: WebDAVError?) -> Void) -> URLSessionDataTask? {
-        basicDataTask(path: path, destination: destination, account: account, password: password, method: .move, completion: completion)
+    func moveFile(fromPath path: String, to destination: String, completion: @escaping (_ error: WebDAVError?) -> Void) -> URLSessionDataTask? {
+        basicDataTask(path: path, destination: destination, method: .move, completion: completion)
     }
     
     /// Copy the file to the specified destination.
@@ -298,8 +297,8 @@ public extension WebDAV {
     ///   - error: A WebDAVError if the call was unsuccessful. `nil` if it was.
     /// - Returns: The data task for the request.
     @discardableResult
-    func copyFile<A: WebDAVAccount>(fromPath path: String, to destination: String, account: A, password: String, completion: @escaping (_ error: WebDAVError?) -> Void) -> URLSessionDataTask? {
-        basicDataTask(path: path, destination: destination, account: account, password: password, method: .copy, completion: completion)
+    func copyFile(fromPath path: String, to destination: String, completion: @escaping (_ error: WebDAVError?) -> Void) -> URLSessionDataTask? {
+        basicDataTask(path: path, destination: destination, method: .copy, completion: completion)
     }
     
     //MARK: Cache
@@ -310,8 +309,8 @@ public extension WebDAV {
     ///   - path: The path used to download the data.
     ///   - account: The WebDAV account used to download the data.
     /// - Returns: The cached data if it is available.
-    func getCachedData<A: WebDAVAccount>(forItemAtPath path: String, account: A) -> Data? {
-        getCachedValue(cache: dataCache, forItemAtPath: path, account: account, valueFromData: { $0 })
+    func getCachedData(forItemAtPath path: String) -> Data? {
+        getCachedValue(cache: dataCache, forItemAtPath: path, valueFromData: { $0 })
     }
     
     /// Get the cached value for the item at the specified path directly from the memory cache.
@@ -320,7 +319,7 @@ public extension WebDAV {
     ///   - path: The path used to download the data.
     ///   - account: The WebDAV account used to download the data.
     /// - Returns: The cached data if it is available in the given memory cache.
-    func getCachedValue<A: WebDAVAccount, Value: Equatable>(from cache: Cache<AccountPath, Value>, forItemAtPath path: String, account: A) -> Value? {
+    func getCachedValue<Value: Equatable>(from cache: Cache<AccountPath, Value>, forItemAtPath path: String) -> Value? {
         cache[AccountPath(account: account, path: path)]
     }
     
@@ -332,9 +331,9 @@ public extension WebDAV {
     ///   - account: The WebDAV account used to download the data.
     ///   - valueFromData: Convert `Data` to the desired value type.
     /// - Returns: The cached value if it is available.
-    func getCachedValue<A: WebDAVAccount, Value: Equatable>(cache: Cache<AccountPath, Value>, forItemAtPath path: String, account: A, valueFromData: @escaping (_ data: Data) -> Value?) -> Value? {
-        getCachedValue(from: cache, forItemAtPath: path, account: account) ??
-            loadCachedValueFromDisk(cache: cache, forItemAtPath: path, account: account, valueFromData: valueFromData)
+    func getCachedValue<Value: Equatable>(cache: Cache<AccountPath, Value>, forItemAtPath path: String, valueFromData: @escaping (_ data: Data) -> Value?) -> Value? {
+        getCachedValue(from: cache, forItemAtPath: path) ??
+            loadCachedValueFromDisk(cache: cache, forItemAtPath: path, valueFromData: valueFromData)
     }
     
     /// Deletes the cached data or image for the item at the specified path.
@@ -344,12 +343,12 @@ public extension WebDAV {
     ///   - path: The path used to download the data.
     ///   - account: The WebDAV account used to download the data.
     /// - Throws: An error if the file can't be deleted.
-    func deleteCachedData<A: WebDAVAccount>(forItemAtPath path: String, account: A) throws {
+    func deleteCachedData(forItemAtPath path: String) throws {
         let accountPath = AccountPath(account: account, path: path)
         dataCache.removeValue(forKey: accountPath)
         imageCache.removeValue(forKey: accountPath)
         
-        try deleteCachedDataFromDisk(forItemAtPath: path, account: account)
+        try deleteCachedDataFromDisk(forItemAtPath: path)
     }
     
     /// Deletes all downloaded data that has been cached.
@@ -409,8 +408,8 @@ extension WebDAV {
     
     //MARK: Standard Requests
     
-    func cachingDataTask<A: WebDAVAccount, Value: Equatable>(
-        cache: Cache<AccountPath, Value>, path: String, account: A, password: String,
+    func cachingDataTask<Value: Equatable>(
+        cache: Cache<AccountPath, Value>, path: String,
         caching options: WebDAVCachingOptions, valueFromData: @escaping (_ data: Data) -> Value?, placeholder: (() -> Value?)? = nil,
         completion: @escaping (_ value: Value?, _ error: WebDAVError?) -> Void) -> URLSessionDataTask? {
         
@@ -419,12 +418,12 @@ extension WebDAV {
         var cachedValue: Value?
         let accountPath = AccountPath(account: account, path: path)
         if !options.contains(.doNotReturnCachedResult) {
-            if let value = getCachedValue(cache: cache, forItemAtPath: path, account: account, valueFromData: valueFromData) {
+            if let value = getCachedValue(cache: cache, forItemAtPath: path, valueFromData: valueFromData) {
                 completion(value, nil)
                 
                 if !options.contains(.requestEvenIfCached) {
                     if options.contains(.removeExistingCache) {
-                        try? deleteCachedData(forItemAtPath: path, account: account)
+                        try? deleteCachedData(forItemAtPath: path)
                     }
                     return nil
                 } else {
@@ -438,7 +437,7 @@ extension WebDAV {
         // Cached data was not returned. Continue with network fetch.
         
         if options.contains(.removeExistingCache) {
-            try? deleteCachedData(forItemAtPath: path, account: account)
+            try? deleteCachedData(forItemAtPath: path)
         }
         
         let placeholderTask = DispatchWorkItem {
@@ -450,7 +449,7 @@ extension WebDAV {
         
         // Create network request
         
-        guard let request = authorizedRequest(path: path, account: account, password: password, method: .get) else {
+        guard let request = authorizedRequest(path: path, method: .get) else {
             completion(nil, .invalidCredentials)
             return nil
         }
@@ -472,7 +471,7 @@ extension WebDAV {
                     cache.set(value, forKey: accountPath)
                     // Disk cache
                     do {
-                        try self?.saveDataToDiskCache(data, forItemAtPath: path, account: account)
+                        try self?.saveDataToDiskCache(data, forItemAtPath: path)
                     } catch let cachingError {
                         error = .nsError(cachingError)
                     }
@@ -496,8 +495,8 @@ extension WebDAV {
     ///   - username: The username
     ///   - password: The password
     /// - Returns: A base-64 encoded credential if the provided credentials are valid (can be encoded as UTF-8).
-    func auth(username: String, password: String) -> String? {
-        let authString = username + ":" + password
+    func auth(username: String, password: String?) -> String? {
+        let authString = username + ":" + (password ?? "")
         let authData = authString.data(using: .utf8)
         return authData?.base64EncodedString()
     }
@@ -506,12 +505,11 @@ extension WebDAV {
     /// - Parameters:
     ///   - path: The path of the request
     ///   - account: The WebDAV account
-    ///   - password: The WebDAV password
     ///   - method: The HTTP Method for the request.
     /// - Returns: The URL request if the credentials are valid (can be encoded as UTF-8).
-    func authorizedRequest<A: WebDAVAccount>(path: String, account: A, password: String, method: HTTPMethod) -> URLRequest? {
+    func authorizedRequest(path: String, method: HTTPMethod) -> URLRequest? {
         guard let unwrappedAccount = UnwrappedAccount(account: account),
-              let auth = self.auth(username: unwrappedAccount.username, password: password) else { return nil }
+              let auth = self.auth(username: unwrappedAccount.username, password: account.password) else { return nil }
         
         let url = unwrappedAccount.baseURL.appendingPathComponent(path)
         var request = URLRequest(url: url)
@@ -522,8 +520,8 @@ extension WebDAV {
         return request
     }
     
-    func basicDataTask<A: WebDAVAccount>(path: String, destination: String? = nil, account: A, password: String, method: HTTPMethod, completion: @escaping (_ error: WebDAVError?) -> Void) -> URLSessionDataTask? {
-        guard var request = authorizedRequest(path: path, account: account, password: password, method: method),
+    func basicDataTask(path: String, destination: String? = nil, method: HTTPMethod, completion: @escaping (_ error: WebDAVError?) -> Void) -> URLSessionDataTask? {
+        guard var request = authorizedRequest(path: path, method: method),
               let unwrappedAccount = UnwrappedAccount(account: account) else {
             completion(.invalidCredentials)
             return nil
@@ -560,7 +558,7 @@ extension WebDAV {
     
     //MARK: Cache
     
-    func cleanupFilesCache<A: WebDAVAccount>(at path: String, account: A, files: [WebDAVFile]) {
+    func cleanupFilesCache(at path: String, files: [WebDAVFile]) {
         let directory = path.trimmingCharacters(in: AccountPath.slash)
         var changed = false
         // Remove from cache if the the parent directory no longer exists
@@ -577,9 +575,9 @@ extension WebDAV {
         }
     }
     
-    func cleanupCache<A: WebDAVAccount>(at path: String, account: A, files: [WebDAVFile]) throws {
-        cleanupFilesCache(at: path, account: account, files: files)
-        try cleanupDiskCache(at: path, account: account, files: files)
+    func cleanupCache(at path: String, files: [WebDAVFile]) throws {
+        cleanupFilesCache(at: path, files: files)
+        try cleanupDiskCache(at: path, files: files)
     }
     
 }

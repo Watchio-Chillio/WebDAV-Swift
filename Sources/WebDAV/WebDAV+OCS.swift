@@ -64,9 +64,9 @@ public extension WebDAV {
     ///   - error: A WebDAVError if the call was unsuccessful.
     /// - Returns: The data task for the request.
     @discardableResult
-    func getNextcloudTheme<A: WebDAVAccount>(account: A, password: String, completion: @escaping (_ theme: OCSTheme?, _ error: WebDAVError?) -> Void) -> URLSessionDataTask? {
+    func getNextcloudTheme(completion: @escaping (_ theme: OCSTheme?, _ error: WebDAVError?) -> Void) -> URLSessionDataTask? {
         guard let unwrappedAccount = UnwrappedAccount(account: account),
-              let auth = self.auth(username: unwrappedAccount.username, password: password) else {
+              let auth = self.auth(username: unwrappedAccount.username, password: account.password) else {
             completion(nil, .invalidCredentials)
             return nil
         }
@@ -109,8 +109,8 @@ public extension WebDAV {
     ///   - error: A WebDAVError if the call was unsuccessful.
     /// - Returns: The data task for the request.
     @discardableResult
-    func getNextcloudColorHex<A: WebDAVAccount>(account: A, password: String, completion: @escaping (_ color: String?, _ error: WebDAVError?) -> Void) -> URLSessionDataTask? {
-        getNextcloudTheme(account: account, password: password) { theme, error in
+    func getNextcloudColorHex(password: String, completion: @escaping (_ color: String?, _ error: WebDAVError?) -> Void) -> URLSessionDataTask? {
+        getNextcloudTheme() { theme, error in
             completion(theme?.colorHex, error)
         }
     }

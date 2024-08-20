@@ -20,7 +20,7 @@ public extension WebDAV {
     ///   - path: The path that would be used to download the data.
     ///   - account: The WebDAV account that would be used to download the data.
     /// - Returns: The URL where the data is or would be cached.
-    func cachedDataURL<A: WebDAVAccount>(forItemAtPath path: String, account: A) -> URL? {
+    func cachedDataURL(forItemAtPath path: String) -> URL? {
         guard let encodedDescription = UnwrappedAccount(account: account)?.encodedDescription,
               let caches = cacheFolder else { return nil }
         let trimmedPath = path.trimmingCharacters(in: AccountPath.slash)
@@ -40,8 +40,8 @@ public extension WebDAV {
     ///   - path: The path used to download the data.
     ///   - account: The WebDAV account used to download the data.
     /// - Returns: The URL of the cached data, if it exists.
-    func cachedDataURLIfExists<A: WebDAVAccount>(forItemAtPath path: String, account: A) -> URL? {
-        guard let url = cachedDataURL(forItemAtPath: path, account: account) else { return nil }
+    func cachedDataURLIfExists(forItemAtPath path: String) -> URL? {
+        guard let url = cachedDataURL(forItemAtPath: path) else { return nil }
         return FileManager.default.fileExists(atPath: url.path) ? url : nil
     }
     
@@ -50,8 +50,8 @@ public extension WebDAV {
     ///   - path: The path used to download the data.
     ///   - account: The WebDAV account used to download the data.
     /// - Throws: An error if the file couldn't be deleted.
-    func deleteCachedDataFromDisk<A: WebDAVAccount>(forItemAtPath path: String, account: A) throws {
-        guard let url = cachedDataURLIfExists(forItemAtPath: path, account: account) else { return }
+    func deleteCachedDataFromDisk(forItemAtPath path: String) throws {
+        guard let url = cachedDataURLIfExists(forItemAtPath: path) else { return }
         try FileManager.default.removeItem(at: url)
     }
     
@@ -76,8 +76,8 @@ public extension WebDAV {
     ///   - account: The WebDAV account that would be used to download the thumbnail.
     ///   - properties: The properties of the thumbnail.
     /// - Returns: The URL where the thumbnail is or would be cached.
-    func cachedThumbnailURL<A: WebDAVAccount>(forItemAtPath path: String, account: A, with properties: ThumbnailProperties) -> URL? {
-        guard let imageURL = cachedDataURL(forItemAtPath: path, account: account) else { return nil }
+    func cachedThumbnailURL(forItemAtPath path: String, with properties: ThumbnailProperties) -> URL? {
+        guard let imageURL = cachedDataURL(forItemAtPath: path) else { return nil }
         
         // If the query is stored in the URL as an actual query, it won't be included when
         // saving to a file, so we have to manually add the query to the filename here.
@@ -95,8 +95,8 @@ public extension WebDAV {
     ///   - account: The WebDAV account used to download the thumbnail.
     ///   - properties: The properties of the thumbnail.
     /// - Returns: The URL of the cached thumbnail, if it exists.
-    func cachedThumbnailURLIfExists<A: WebDAVAccount>(forItemAtPath path: String, account: A, with properties: ThumbnailProperties) -> URL? {
-        guard let url = cachedThumbnailURL(forItemAtPath: path, account: account, with: properties) else { return nil }
+    func cachedThumbnailURLIfExists(forItemAtPath path: String, with properties: ThumbnailProperties) -> URL? {
+        guard let url = cachedThumbnailURL(forItemAtPath: path, with: properties) else { return nil }
         return FileManager.default.fileExists(atPath: url.path) ? url : nil
     }
     
@@ -105,9 +105,9 @@ public extension WebDAV {
     ///   - path: The path used to download the thumbnails.
     ///   - account: The WebDAV account used to download the thumbnails.
     /// - Throws: An error if the caches directory couldn't be listed.
-    func getAllCachedThumbnailURLs<A: WebDAVAccount>(forItemAtPath path: String, account: A) throws -> [URL]? {
+    func getAllCachedThumbnailURLs(forItemAtPath path: String) throws -> [URL]? {
         let fm = FileManager.default
-        guard let url = cachedDataURL(forItemAtPath: path, account: account) else { return nil }
+        guard let url = cachedDataURL(forItemAtPath: path) else { return nil }
         
         let filename = url.lastPathComponent
         let directory = url.deletingLastPathComponent()
@@ -122,8 +122,8 @@ public extension WebDAV {
     ///   - account: The WebDAV account used to download the thumbnail.
     ///   - properties: The properties of the thumbnail.
     /// - Throws: An error if the file couldn't be deleted.
-    func deleteCachedThumbnailFromDisk<A: WebDAVAccount>(forItemAtPath path: String, account: A, with properties: ThumbnailProperties) throws {
-        guard let url = cachedThumbnailURLIfExists(forItemAtPath: path, account: account, with: properties) else { return }
+    func deleteCachedThumbnailFromDisk(forItemAtPath path: String, with properties: ThumbnailProperties) throws {
+        guard let url = cachedThumbnailURLIfExists(forItemAtPath: path, with: properties) else { return }
         try FileManager.default.removeItem(at: url)
     }
     
@@ -132,8 +132,8 @@ public extension WebDAV {
     ///   - path: The path used to download the thumbnails.
     ///   - account: The WebDAV account used to download the thumbnails.
     /// - Throws: An error if the files couldn't be deleted.
-    func deleteAllCachedThumbnailsFromDisk<A: WebDAVAccount>(forItemAtPath path: String, account: A) throws {
-        try getAllCachedThumbnailURLs(forItemAtPath: path, account: account)?.forEach { try FileManager.default.removeItem(at: $0) }
+    func deleteAllCachedThumbnailsFromDisk(forItemAtPath path: String) throws {
+        try getAllCachedThumbnailURLs(forItemAtPath: path)?.forEach { try FileManager.default.removeItem(at: $0) }
     }
     
 }
@@ -160,8 +160,8 @@ extension WebDAV {
     
     //MARK: Data Cache
     
-    func loadCachedValueFromDisk<A: WebDAVAccount, Value: Equatable>(cache: Cache<AccountPath, Value>, forItemAtPath path: String, account: A, valueFromData: @escaping (_ data: Data) -> Value?) -> Value? {
-        guard let url = cachedDataURL(forItemAtPath: path, account: account),
+    func loadCachedValueFromDisk<Value: Equatable>(cache: Cache<AccountPath, Value>, forItemAtPath path: String, valueFromData: @escaping (_ data: Data) -> Value?) -> Value? {
+        guard let url = cachedDataURL(forItemAtPath: path),
               FileManager.default.fileExists(atPath: url.path),
               let data = try? Data(contentsOf: url),
               let value = valueFromData(data) else { return nil }
@@ -178,17 +178,17 @@ extension WebDAV {
         try data.write(to: url)
     }
     
-    func saveDataToDiskCache<A: WebDAVAccount>(_ data: Data, forItemAtPath path: String, account: A) throws {
-        guard let url = cachedDataURL(forItemAtPath: path, account: account) else { return }
+    func saveDataToDiskCache(_ data: Data, forItemAtPath path: String) throws {
+        guard let url = cachedDataURL(forItemAtPath: path) else { return }
         try saveDataToDiskCache(data, url: url)
     }
     
-    func cleanupDiskCache<A: WebDAVAccount>(at path: String, account: A, files: [WebDAVFile]) throws {
+    func cleanupDiskCache(at path: String, files: [WebDAVFile]) throws {
         let fm = FileManager.default
-        guard let url = cachedDataURL(forItemAtPath: path, account: account),
+        guard let url = cachedDataURL(forItemAtPath: path),
               fm.fileExists(atPath: url.path) else { return }
         
-        let goodFilePaths = files.compactMap { cachedDataURL(forItemAtPath: $0.path, account: account)?.path }
+        let goodFilePaths = files.compactMap { cachedDataURL(forItemAtPath: $0.path)?.path }
         
         let infoPlist = filesCacheURL?.path
         for path in try fm.contentsOfDirectory(atPath: url.path).map({ url.appendingPathComponent($0).path })
@@ -200,17 +200,17 @@ extension WebDAV {
     
     //MARK: Thumbnail Cache
     
-    func loadCachedThumbnailFromDisk<A: WebDAVAccount>(forItemAtPath path: String, account: A, with properties: ThumbnailProperties) -> UIImage? {
-        guard let url = cachedThumbnailURL(forItemAtPath: path, account: account, with: properties),
+    func loadCachedThumbnailFromDisk(forItemAtPath path: String, with properties: ThumbnailProperties) -> UIImage? {
+        guard let url = cachedThumbnailURL(forItemAtPath: path, with: properties),
               FileManager.default.fileExists(atPath: url.path),
               let data = try? Data(contentsOf: url),
               let thumbnail = UIImage(data: data) else { return nil }
-        saveToMemoryCache(thumbnail: thumbnail, forItemAtPath: path, account: account, with: properties)
+        saveToMemoryCache(thumbnail: thumbnail, forItemAtPath: path, with: properties)
         return thumbnail
     }
     
-    func loadAllCachedThumbnailsFromDisk<A: WebDAVAccount>(forItemAtPath path: String, account: A) throws -> [ThumbnailProperties: UIImage]? {
-        guard let urls = try getAllCachedThumbnailURLs(forItemAtPath: path, account: account) else { return nil }
+    func loadAllCachedThumbnailsFromDisk(forItemAtPath path: String) throws -> [ThumbnailProperties: UIImage]? {
+        guard let urls = try getAllCachedThumbnailURLs(forItemAtPath: path) else { return nil }
         let thumbnails = try urls.compactMap { url -> (ThumbnailProperties, UIImage)? in
             // Load the thumbnail
             let data = try Data(contentsOf: url)
@@ -250,8 +250,8 @@ extension WebDAV {
         return cachedThumbnails
     }
     
-    func saveThumbnailToDiskCache<A: WebDAVAccount>(data: Data, forItemAtPath path: String, account: A, with properties: ThumbnailProperties) throws {
-        guard let url = cachedThumbnailURL(forItemAtPath: path, account: account, with: properties) else { return }
+    func saveThumbnailToDiskCache(data: Data, forItemAtPath path: String, with properties: ThumbnailProperties) throws {
+        guard let url = cachedThumbnailURL(forItemAtPath: path, with: properties) else { return }
         try saveDataToDiskCache(data, url: url)
     }
     

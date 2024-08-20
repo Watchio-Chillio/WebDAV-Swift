@@ -11,6 +11,7 @@ import Foundation
 
 public protocol WebDAVAccount: Hashable {
     var username: String? { get }
+    var password: String? { get }
     var baseURL: String? { get }
 }
 
@@ -77,10 +78,12 @@ public struct AccountPath: Hashable, Codable {
 
 public struct SimpleAccount: WebDAVAccount {
     public var username: String?
+    public var password: String?
     public var baseURL: String?
     
-    public init(username: String? = nil, baseURL: String? = nil) {
+    public init(username: String?, password: String?, baseURL: String?) {
         self.username = username
+        self.password = password
         self.baseURL = baseURL
     }
 }

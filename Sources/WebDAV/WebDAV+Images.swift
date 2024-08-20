@@ -98,22 +98,22 @@ public extension WebDAV {
     ///   - error: A WebDAVError if the call was unsuccessful. `nil` if it was.
     /// - Returns: The request identifier.
     @discardableResult
-    func downloadImage<A: WebDAVAccount>(path: String, account: A, password: String, caching options: WebDAVCachingOptions = [], preview: ThumbnailPreviewMode? = .none, completion: @escaping (_ image: UIImage?, _ error: WebDAVError?) -> Void) -> URLSessionDataTask? {
-        cachingDataTask(cache: imageCache, path: path, account: account, password: password, caching: options, valueFromData: { UIImage(data: $0) }, placeholder: {
+    func downloadImage(path: String, password: String, caching options: WebDAVCachingOptions = [], preview: ThumbnailPreviewMode? = .none, completion: @escaping (_ image: UIImage?, _ error: WebDAVError?) -> Void) -> URLSessionDataTask? {
+        cachingDataTask(cache: imageCache, path: path, caching: options, valueFromData: { UIImage(data: $0) }, placeholder: {
             // Load placeholder thumbnail
-            var thumbnails = self.getAllMemoryCachedThumbnails(forItemAtPath: path, account: account)?.values
+            var thumbnails = self.getAllMemoryCachedThumbnails(forItemAtPath: path)?.values
             
             switch preview {
             case .none:
                 return nil
             case .specific(let properties):
-                return self.getCachedThumbnail(forItemAtPath: path, account: account, with: properties)
+                return self.getCachedThumbnail(forItemAtPath: path, with: properties)
             case .memoryOnly:
                 break
             case .diskAllowed:
                 // Only load from disk if there aren't any in memory
                 if thumbnails?.isEmpty ?? true {
-                    thumbnails = self.getAllMemoryCachedThumbnails(forItemAtPath: path, account: account)?.values
+                    thumbnails = self.getAllMemoryCachedThumbnails(forItemAtPath: path)?.values
                 }
             }
             let largestThumbnail = thumbnails?.max(by: { $0.size.width * $0.size.height < $1.size.width * $1.size.height })
@@ -141,8 +141,8 @@ public extension WebDAV {
     ///   - error: A WebDAVError if the call was unsuccessful. `nil` if it was.
     /// - Returns: The request identifier.
     @discardableResult
-    func downloadThumbnail<A: WebDAVAccount>(
-        path: String, account: A, password: String, with properties: ThumbnailProperties = .default,
+    func downloadThumbnail(
+        path: String, password: String, with properties: ThumbnailProperties = .default,
         caching options: WebDAVCachingOptions = [], completion: @escaping (_ image: UIImage?, _ error: WebDAVError?) -> Void
     ) -> URLSessionDataTask? {
         // This function looks a lot like cachingDataTask and authorizedRequest,
@@ -153,12 +153,12 @@ public extension WebDAV {
         
         var cachedThumbnail: UIImage?
         if !options.contains(.doNotReturnCachedResult) {
-            if let thumbnail = getCachedThumbnail(forItemAtPath: path, account: account, with: properties) {
+            if let thumbnail = getCachedThumbnail(forItemAtPath: path, with: properties) {
                 completion(thumbnail, nil)
                 
                 if !options.contains(.requestEvenIfCached) {
                     if options.contains(.removeExistingCache) {
-                        try? deleteCachedThumbnail(forItemAtPath: path, account: account, with: properties)
+                        try? deleteCachedThumbnail(forItemAtPath: path, with: properties)
                     }
                     return nil
                 } else {
@@ -168,7 +168,7 @@ public extension WebDAV {
         }
         
         if options.contains(.removeExistingCache) {
-            try? deleteCachedThumbnail(forItemAtPath: path, account: account, with: properties)
+            try? deleteCachedThumbnail(forItemAtPath: path, with: properties)
         }
         
         // Create Network request
@@ -199,10 +199,10 @@ public extension WebDAV {
                 if !options.contains(.removeExistingCache),
                    !options.contains(.doNotCacheResult) {
                     // Memory cache
-                    self?.saveToMemoryCache(thumbnail: thumbnail, forItemAtPath: path, account: account, with: properties)
+                    self?.saveToMemoryCache(thumbnail: thumbnail, forItemAtPath: path, with: properties)
                     // Disk cache
                     do {
-                        try self?.saveThumbnailToDiskCache(data: data, forItemAtPath: path, account: account, with: properties)
+                        try self?.saveThumbnailToDiskCache(data: data, forItemAtPath: path, with: properties)
                     } catch let cachingError {
                         error = .nsError(cachingError)
                     }
@@ -228,8 +228,8 @@ public extension WebDAV {
     ///   - path: The path used to download the image.
     ///   - account: The WebDAV account used to download the image.
     /// - Returns: The cached image if it is available.
-    func getCachedImage<A: WebDAVAccount>(forItemAtPath path: String, account: A) -> UIImage? {
-        getCachedValue(cache: imageCache, forItemAtPath: path, account: account, valueFromData: { UIImage(data: $0) })
+    func getCachedImage(forItemAtPath path: String) -> UIImage? {
+        getCachedValue(cache: imageCache, forItemAtPath: path, valueFromData: { UIImage(data: $0) })
     }
     
     //MARK: Thumbnail Cache
@@ -239,8 +239,8 @@ public extension WebDAV {
     ///   - path: The path used to download the thumbnails.
     ///   - account: The WebDAV account used to download the thumbnails.
     /// - Returns: A dictionary of thumbnails with their properties as keys.
-    func getAllMemoryCachedThumbnails<A: WebDAVAccount>(forItemAtPath path: String, account: A) -> [ThumbnailProperties: UIImage]? {
-        getCachedValue(from: thumbnailCache, forItemAtPath: path, account: account)
+    func getAllMemoryCachedThumbnails(forItemAtPath path: String) -> [ThumbnailProperties: UIImage]? {
+        getCachedValue(from: thumbnailCache, forItemAtPath: path)
     }
     
     /// Get all cached thumbnails of the image at the specified path.
@@ -254,8 +254,8 @@ public extension WebDAV {
     ///   - account: The WebDAV account used to download the thumbnails.
     /// - Returns: A dictionary of thumbnails with their properties as keys.
     /// - Throws: An error if the cached files couldn't be loaded.
-    func getAllCachedThumbnails<A: WebDAVAccount>(forItemAtPath path: String, account: A) throws -> [ThumbnailProperties: UIImage]? {
-        try loadAllCachedThumbnailsFromDisk(forItemAtPath: path, account: account)
+    func getAllCachedThumbnails(forItemAtPath path: String) throws -> [ThumbnailProperties: UIImage]? {
+        try loadAllCachedThumbnailsFromDisk(forItemAtPath: path)
     }
     
     /// Get the cached thumbnail of the image at the specified path with the specified properties, if available.
@@ -264,9 +264,9 @@ public extension WebDAV {
     ///   - account: The WebDAV account used to download the thumbnail.
     ///   - properties: The properties of the thumbnail.
     /// - Returns: The thumbnail if it is available.
-    func getCachedThumbnail<A: WebDAVAccount>(forItemAtPath path: String, account: A, with properties: ThumbnailProperties) -> UIImage? {
-        getAllMemoryCachedThumbnails(forItemAtPath: path, account: account)?[properties] ??
-            loadCachedThumbnailFromDisk(forItemAtPath: path, account: account, with: properties)
+    func getCachedThumbnail(forItemAtPath path: String, with properties: ThumbnailProperties) -> UIImage? {
+        getAllMemoryCachedThumbnails(forItemAtPath: path)?[properties] ??
+            loadCachedThumbnailFromDisk(forItemAtPath: path, with: properties)
     }
     
     /// Delete the cached thumbnail of the image at the specified path with the specified properties.
@@ -277,7 +277,7 @@ public extension WebDAV {
     ///   - account: The WebDAV account used to download the thumbnail.
     ///   - properties: The properties of the thumbnail.
     /// - Throws: An error if the file couldn't be deleted.
-    func deleteCachedThumbnail<A: WebDAVAccount>(forItemAtPath path: String, account: A, with properties: ThumbnailProperties) throws {
+    func deleteCachedThumbnail(forItemAtPath path: String, with properties: ThumbnailProperties) throws {
         let accountPath = AccountPath(account: account, path: path)
         if var cachedThumbnails = thumbnailCache[accountPath] {
             cachedThumbnails.removeValue(forKey: properties)
@@ -288,7 +288,7 @@ public extension WebDAV {
             }
         }
         
-        try deleteCachedThumbnailFromDisk(forItemAtPath: path, account: account, with: properties)
+        try deleteCachedThumbnailFromDisk(forItemAtPath: path, with: properties)
     }
     
     /// Delete the cached thumbnails of the image at the specified path.
@@ -298,10 +298,10 @@ public extension WebDAV {
     ///   - path: The path used to download the thumbnails.
     ///   - account: The WebDAV account used to download the thumbnails.
     /// - Throws: An error if the files couldn't be deleted.
-    func deleteAllCachedThumbnails<A: WebDAVAccount>(forItemAtPath path: String, account: A) throws {
+    func deleteAllCachedThumbnails(forItemAtPath path: String) throws {
         let accountPath = AccountPath(account: account, path: path)
         thumbnailCache.removeValue(forKey: accountPath)
-        try deleteAllCachedThumbnailsFromDisk(forItemAtPath: path, account: account)
+        try deleteAllCachedThumbnailsFromDisk(forItemAtPath: path)
     }
     
 }
@@ -352,7 +352,7 @@ extension WebDAV {
     
     //MARK: Thumbnail Cache
     
-    func saveToMemoryCache<A: WebDAVAccount>(thumbnail: UIImage, forItemAtPath path: String, account: A, with properties: ThumbnailProperties) {
+    func saveToMemoryCache(thumbnail: UIImage, forItemAtPath path: String, with properties: ThumbnailProperties) {
         let accountPath = AccountPath(account: account, path: path)
         var cachedThumbnails = thumbnailCache[accountPath] ?? [:]
         cachedThumbnails[properties] = thumbnail
