@@ -14,30 +14,46 @@ public struct WebDAVFile: Identifiable, Codable, Equatable, Hashable {
     
     /// The path of the file.
     public private(set) var path: String
-    public private(set) var id: String
-    public private(set) var isDirectory: Bool
-    public private(set) var lastModified: Date
     public private(set) var size: Int
-    public private(set) var etag: String
+    public private(set) var isDirectory: Bool
     
-    public init(path: String, id: String, isDirectory: Bool, lastModified: Date, size: Int, etag: String) {
+    public private(set) var lastModified: Date?
+    public private(set) var creationDate: Date?
+    public private(set) var id: String?
+    public private(set) var etag: String?
+    
+    public init(path: String, id: String?, isDirectory: Bool, lastModified: Date?, size: Int, etag: String?, creationDate: Date?) {
         self.path = path
         self.id = id
         self.isDirectory = isDirectory
         self.lastModified = lastModified
         self.size = size
         self.etag = etag
+        self.creationDate = creationDate
     }
     
     init?(xml: XMLIndexer, baseURL: String?) {
         let properties = xml["propstat"][0]["prop"]
-        guard var path = xml["href"].element?.text,
-              let dateString = properties["getlastmodified"].element?.text,
-              let date = WebDAVFile.rfc1123Formatter.date(from: dateString),
-              let id = properties["fileid"].element?.text,
-              let sizeString = properties["size"].element?.text,
-              let size = Int(sizeString),
-              let etag = properties["getetag"].element?.text else { return nil }
+        guard var path = xml["href"].element?.text else { return nil }
+        
+        var date:Date? = nil
+        if let dateString = properties["getlastmodified"].element?.text {
+            date = WebDAVFile.rfc1123Formatter.date(from: dateString)
+        }
+        
+        var creationdate:Date? = nil
+        if let dateString = properties["creationdate"].element?.text {
+            creationdate = ISO8601DateFormatter().date(from: dateString)
+        }
+        
+        let id = properties["fileid"].element?.text
+        
+        var size = 0
+        if let sizeString = properties["getcontentlength"].element?.text {
+            size = Int(sizeString) ?? 0
+        }
+        
+        let etag = properties["getetag"].element?.text
         let isDirectory = properties["getcontenttype"].element?.text == nil
         
         if let decodedPath = path.removingPercentEncoding {
@@ -52,7 +68,7 @@ public struct WebDAVFile: Identifiable, Codable, Equatable, Hashable {
             path.removeFirst()
         }
         
-        self.init(path: path, id: id, isDirectory: isDirectory, lastModified: date, size: size, etag: etag)
+        self.init(path: path, id: id, isDirectory: isDirectory, lastModified: date, size: size, etag: etag, creationDate: creationdate)
     }
     
     //MARK: Static
@@ -62,7 +78,7 @@ public struct WebDAVFile: Identifiable, Codable, Equatable, Hashable {
         formatter.dateFormat = "EEE, dd MMM yyyy HH:mm:ss z"
         return formatter
     }()
-    
+        
     private static func removing(endOf string1: String, from string2: String) -> String {
         guard let first = string2.first else { return string2 }
         
