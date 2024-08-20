@@ -78,4 +78,9 @@ public struct AccountPath: Hashable, Codable {
 public struct SimpleAccount: WebDAVAccount {
     public var username: String?
     public var baseURL: String?
+    
+    public init(username: String? = nil, baseURL: String? = nil) {
+        self.username = username
+        self.baseURL = baseURL
+    }
 }
