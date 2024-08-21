@@ -89,7 +89,7 @@ public extension WebDAV {
                 return completion(nil, webDAVError)
             }
             
-            let xml = SWXMLHash.parse(string)
+            let xml = XMLHash.parse(string)
             let theme = OCSTheme(xml: xml)
             
             completion(theme, WebDAVError.getError(response: response, error: error))

@@ -143,7 +143,7 @@ public extension WebDAV {
             
             // Create WebDAVFiles from the XML response
             
-            let xml = SWXMLHash.config { config in
+            let xml = XMLHash.config { config in
                 config.shouldProcessNamespaces = true
             }.parse(string)
             

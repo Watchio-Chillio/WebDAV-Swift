@@ -22,5 +22,5 @@ Pod::Spec.new do |s|
     :branch => 'main'
   }
   s.source_files = 'Sources/WebDAV/*.swift'
-  s.dependency 'SWXMLHash'
+  s.dependency 'SWXMLHash', '~> 7.0.0'
 end
