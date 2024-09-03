@@ -36,6 +36,22 @@ public struct WebDAVFile: Identifiable, Codable, Equatable, Hashable {
         let properties = xml["propstat"][0]["prop"]
         guard var path = xml["href"].element?.text else { return nil }
         
+        if let decodedPath = path.removingPercentEncoding {
+            path = decodedPath
+        }
+        
+        if let baseURL = baseURL {
+            path = WebDAVFile.removing(endOf: baseURL, from: path)
+        }
+        
+        if path.first == "/" {
+            path.removeFirst()
+        }
+        
+        if URL(fileURLWithPath: path).lastPathComponent.hasPrefix(".") {
+            return nil
+        }
+        
         var date:Date? = nil
         if let dateString = properties["getlastmodified"].element?.text {
             date = WebDAVFile.rfc1123Formatter.date(from: dateString)
@@ -54,19 +70,8 @@ public struct WebDAVFile: Identifiable, Codable, Equatable, Hashable {
         }
         
         let etag = properties["getetag"].element?.text
-        let isDirectory = properties["getcontenttype"].element?.text == nil
-        
-        if let decodedPath = path.removingPercentEncoding {
-            path = decodedPath
-        }
-        
-        if let baseURL = baseURL {
-            path = WebDAVFile.removing(endOf: baseURL, from: path)
-        }
-        
-        if path.first == "/" {
-            path.removeFirst()
-        }
+        let contentType = properties["getcontenttype"].element?.text
+        let isDirectory = contentType == nil || contentType!.contains("directory")
         
         self.init(path: path, id: id, isDirectory: isDirectory, lastModified: date, size: size, etag: etag, creationDate: creationdate)
     }
